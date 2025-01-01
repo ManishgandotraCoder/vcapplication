@@ -17,6 +17,8 @@ app.get("/", (req: express.Request, res: express.Response) => {
 
 // GET
 app.get("/get", (req: express.Request, res: express.Response) => {
+  console.log("in");
+
   res
     .status(200)
     .header("x-get-header", "get-header-value")
