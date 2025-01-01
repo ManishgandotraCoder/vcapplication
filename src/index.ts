@@ -1,41 +1,30 @@
 // src/index.ts
-import express, { Application, Request, Response } from "express";
+import express, { Request, Response } from "express";
+import nodemailer from "nodemailer";
+import bodyParser from "body-parser";
+import cors from "cors";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import cors from "cors";
 
-const app: Application = express();
-const PORT = 3000;
+const app: express.Application = express();
+const port = 3000;
 
-// Create HTTP server and Socket.IO server
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
     origin: "*", // or specify your client URL, e.g., "http://localhost:3001"
   },
 });
-const corsOptions = {
-  origin: "*", // or an array of domains
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true, // if you need to allow cookies/auth headers
-};
-app.use(cors(corsOptions));
 
-// Middleware
-app.use(express.json());
+app.use(express.text());
+app.use(bodyParser.json());
+app.use(cors());
+(async () => {
+  httpServer.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
+})();
 
-// Routes
-
-// Root route
-app.get("/", (req: Request, res: Response) => {
-  res.send("Hello from the Node-TS-Mongo + Socket app!");
-});
-
-// ------------------------------------------
-// In-memory store of online users (basic)
-// Key: userId, Value: socket.id
-// ------------------------------------------
 const onlineUsers = new Map<string, string>();
 
 // Socket.IO connection logic
@@ -71,8 +60,6 @@ io.on("connection", (socket) => {
   });
 });
 
-(async () => {
-  httpServer.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-})();
+app.get("/", (req: Request, res: Response): void => {
+  res.send("Welcome to Manish Gandotra testing domain");
+});
