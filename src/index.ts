@@ -1,79 +1,78 @@
 // src/index.ts
-import express, { Request, Response } from "express";
-import nodemailer from "nodemailer";
-import bodyParser from "body-parser";
+import express, { Application, Request, Response } from "express";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import cors from "cors";
 
-const app: express.Application = express();
-const port = 3000;
+const app: Application = express();
+const PORT = 3000;
 
-app.use(express.text());
-app.use(bodyParser.json());
-app.use(cors());
-app.listen(port, () => {
-  console.log(`server is listening on ${port}`);
-});
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com", // Gmail's SMTP server
-  port: 465, // Secure port for SSL
-  secure: true, // Use SSL
-  service: "gmail", // You can use other email services like Yahoo, Outlook, etc.
-  auth: {
-    user: process.env.SENDER_EMAIL, // Replace with your email
-    pass: process.env.SENDER_PASSWORD, // Replace with your email password or app-specific password
+// Create HTTP server and Socket.IO server
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", // or specify your client URL, e.g., "http://localhost:3001"
   },
 });
+const corsOptions = {
+  origin: "*", // or an array of domains
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true, // if you need to allow cookies/auth headers
+};
+app.use(cors(corsOptions));
 
-app.post("/send-email", (req: Request, res: Response): void => {
-  const {
-    subject,
-    message,
-    phone,
-    email,
-    name,
-  }: {
-    subject: string;
-    message: string;
-    phone: number;
-    email: string;
-    name: string;
-  } = req.body;
+// Middleware
+app.use(express.json());
 
-  // Validation for required fields
-  if (!subject || !message || !phone || !email || !name) {
-    res.status(400).json({ message: "Missing required fields" });
-    return;
-  }
+// Routes
 
-  // Validate email format
-  const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
-  if (!emailRegex.test(email)) {
-    res.status(400).json({ message: "Invalid email format" });
-    return;
-  }
+// Root route
+app.get("/", (req: Request, res: Response) => {
+  res.send("Hello from the Node-TS-Mongo + Socket app!");
+});
 
-  const mailOptions = {
-    from: email, // sender address
-    to: "manishgandotra@icloud.com", // recipient address
-    subject: `${name} wants to connect`, // subject line
-    text: `${message}\n\nContact Details:\nName: ${name}\nPhone: ${phone}\nEmail: ${email}`, // Plain text body
-  };
+// ------------------------------------------
+// In-memory store of online users (basic)
+// Key: userId, Value: socket.id
+// ------------------------------------------
+const onlineUsers = new Map<string, string>();
 
-  // Send email
-  transporter.sendMail(
-    mailOptions,
-    (error: Error | null, info: nodemailer.SentMessageInfo) => {
-      if (error) {
-        console.log(error);
-        res.status(500).json({ message: "Error sending email", error });
-        return;
+// Socket.IO connection logic
+io.on("connection", (socket) => {
+  console.log("New client connected:", socket.id);
+
+  socket.on("join", (userId: string) => {
+    console.log(`User ${userId} connected with socketId: ${socket.id}`);
+
+    // 1. Store in-memory tracking
+    onlineUsers.set(userId, socket.id);
+
+    // 2. Update user status in DB
+
+    // 3. Broadcast updated online user list
+    io.emit("onlineUsers", Array.from(onlineUsers.keys()));
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`Client disconnected: ${socket.id}`);
+
+    // 4. Remove user from online users Map
+    for (const [userId, sockId] of onlineUsers.entries()) {
+      if (sockId === socket.id) {
+        onlineUsers.delete(userId);
+
+        break;
       }
-      console.log("Email sent: " + info.response);
-      res.status(200).json({ message: "Email sent successfully", info });
     }
-  );
+
+    // 6. Broadcast updated online user list again
+    io.emit("onlineUsers", Array.from(onlineUsers.keys()));
+  });
 });
 
-app.get("/", (req: Request, res: Response): void => {
-  res.send("Welcome to Manish Gandotra testing domain");
-});
+(async () => {
+  httpServer.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+})();
