@@ -19,12 +19,15 @@ const io = new Server(httpServer, {
 app.use(express.text());
 app.use(bodyParser.json());
 app.use(cors());
-(async () => {
-  httpServer.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-  });
-})();
+// (async () => {
+//   httpServer.listen(port, () => {
+//     console.log(`Server running on port ${port}`);
+//   });
+// })();
 
+app.listen(port, () => {
+  console.log(`server is listening on ${port}`);
+});
 const onlineUsers = new Map<string, string>();
 
 // Socket.IO connection logic
