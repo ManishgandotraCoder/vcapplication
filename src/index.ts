@@ -1,55 +1,79 @@
 // src/index.ts
-import express from "express";
+import express, { Request, Response } from "express";
+import nodemailer from "nodemailer";
+import bodyParser from "body-parser";
+import cors from "cors";
 
 const app: express.Application = express();
 const port = 3000;
 
 app.use(express.text());
-
+app.use(bodyParser.json());
+app.use(cors());
 app.listen(port, () => {
   console.log(`server is listening on ${port}`);
 });
-
-// Homepage
-app.get("/", (req: express.Request, res: express.Response) => {
-  res.status(200).send("Hello World!");
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com", // Gmail's SMTP server
+  port: 465, // Secure port for SSL
+  secure: true, // Use SSL
+  service: "gmail", // You can use other email services like Yahoo, Outlook, etc.
+  auth: {
+    user: process.env.SENDER_EMAIL, // Replace with your email
+    pass: process.env.SENDER_PASSWORD, // Replace with your email password or app-specific password
+  },
 });
 
-// GET
-app.get("/get", (req: express.Request, res: express.Response) => {
-  console.log("in");
+app.post("/send-email", (req: Request, res: Response): void => {
+  const {
+    subject,
+    message,
+    phone,
+    email,
+    name,
+  }: {
+    subject: string;
+    message: string;
+    phone: number;
+    email: string;
+    name: string;
+  } = req.body;
 
-  res
-    .status(200)
-    .header("x-get-header", "get-header-value")
-    .send("get-response-from-compute");
+  // Validation for required fields
+  if (!subject || !message || !phone || !email || !name) {
+    res.status(400).json({ message: "Missing required fields" });
+    return;
+  }
+
+  // Validate email format
+  const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
+  if (!emailRegex.test(email)) {
+    res.status(400).json({ message: "Invalid email format" });
+    return;
+  }
+
+  const mailOptions = {
+    from: email, // sender address
+    to: "manishgandotra@icloud.com", // recipient address
+    subject: `${name} wants to connect`, // subject line
+    text: `${message}\n\nContact Details:\nName: ${name}\nPhone: ${phone}\nEmail: ${email}`, // Plain text body
+  };
+
+  // Send email
+  transporter.sendMail(
+    mailOptions,
+    (error: Error | null, info: nodemailer.SentMessageInfo) => {
+      if (error) {
+        console.log(error);
+        res.status(500).json({ message: "Error sending email", error });
+        return;
+      }
+      console.log("Email sent: " + info.response);
+      res.status(200).json({ message: "Email sent successfully", info });
+    }
+  );
 });
 
-//POST
-app.post("/post", (req: express.Request, res: express.Response) => {
-  res
-    .status(200)
-    .header("x-post-header", "post-header-value")
-    .send(req.body.toString());
-});
-
-//PUT
-app.put("/put", (req: express.Request, res: express.Response) => {
-  res
-    .status(200)
-    .header("x-put-header", "put-header-value")
-    .send(req.body.toString());
-});
-
-//PATCH
-app.patch("/patch", (req: express.Request, res: express.Response) => {
-  res
-    .status(200)
-    .header("x-patch-header", "patch-header-value")
-    .send(req.body.toString());
-});
-
-// Delete
-app.delete("/delete", (req: express.Request, res: express.Response) => {
-  res.status(200).header("x-delete-header", "delete-header-value").send();
+app.get("/", (req: Request, res: Response): void => {
+  res.send("Welcome to Manish Gandotra testing domain");
 });
